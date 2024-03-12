@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="com.coding404.myweb.product.service.ProductMapper">
+
+	<insert id="regist">
+		insert into PRODUCT (PROD_ENDDATE
+							 ,PROD_CATEGORY
+							 ,PROD_WRITER
+							 ,PROD_NAME
+							 ,PROD_PRICE
+							 ,PROD_COUNT
+							 ,PROD_DISCOUNT
+							 ,PROD_PURCHASE_YN
+							 ,PROD_CONTENT
+							 ,PROD_COMMENT	)
+		values (#{prod_enddate}
+				,#{prod_category}
+				,#{prod_writer}
+				,#{prod_name}
+				,#{prod_price}
+				,#{prod_count}
+				,#{prod_discount}
+				,#{prod_purchase_yn}
+				,#{prod_content}
+				,#{prod_comment}	)
+	</insert>
+
+	<!-- 
+		동적쿼리 test조건은 VO안에 선언된 geter명을 변수로 사용가능
+		CDATA안에 들어간 값은 순수한 문자열로 인식을 시킴(부등호 사용할 때 적용)
+	 -->
+
+	<select id="getList" resultType="ProductVO">
+		select * from PRODUCT
+		where prod_writer = 'admin'
+		
+		<if test="criteria.searchName != '' and criteria.searchName != null">
+			and prod_name like concat('%', #{criteria.searchName}, '%')
+		</if>
+		<if test="criteria.searchContent != '' and criteria.searchContent != null">
+			and prod_content like concat('%', #{criteria.searchContent}, '%')
+		</if>
+		<if test="criteria.startDate != '' and criteria.startDate != null">
+			<![CDATA[
+				and str_to_date( prod_enddate, '%Y-%m-%d' ) >= str_to_date(#{criteria.startDate}, '%Y-%m-%d')
+			]]>
+		</if>
+		<if test="criteria.endDate != '' and criteria.endDate != null">
+			<![CDATA[
+				and str_to_date( prod_enddate, '%Y-%m-%d' ) <= str_to_date(#{criteria.endDate}, '%Y-%m-%d')
+			]]>
+		</if>
+		
+		order by 
+		<if test="criteria.searchPrice == 'asc' ">
+			prod_price asc, 
+		</if>
+		<if test="criteria.searchPrice == 'desc'">
+			prod_price desc,
+		</if>
+		prod_id desc
+		limit #{criteria.pageStart}, #{criteria.amount}
+		
+	</select>
+
+	
+	<select id="getDetail" resultType="ProductVO">
+		select * from PRODUCT
+		where prod_id = #{prod_id}
+	</select>
+
+	<update id="update">
+		update PRODUCT set 
+		prod_enddate = #{prod_enddate}
+		,prod_name = #{prod_name}
+		,prod_price = #{prod_price}
+		,prod_count = #{prod_count}
+		,prod_discount = #{prod_discount}
+		,prod_comment = #{prod_comment}
+		,prod_content = #{prod_content}
+		where prod_id = #{prod_id}
+	</update>
+	
+	<delete id="delete">
+		delete from PRODUCT where prod_id = #{prod_id} 
+	</delete>
+	
+	<select id="getTotal" resultType="int">
+		select count(*) as total
+		from PRODUCT
+		where prod_writer = #{user_id}
+		<if test="criteria.searchName != '' and criteria.searchName != null">
+			and prod_name like concat('%', #{criteria.searchName}, '%')
+		</if>
+		<if test="criteria.searchContent != '' and criteria.searchContent != null">
+			and prod_content like concat('%', #{criteria.searchContent}, '%')
+		</if>
+		<if test="criteria.startDate != '' and criteria.startDate != null">
+			<![CDATA[
+				and str_to_date( prod_enddate, '%Y-%m-%d' ) >= str_to_date(#{criteria.startDate}, '%Y-%m-%d')
+			]]>
+		</if>
+		<if test="criteria.endDate != '' and criteria.endDate != null">
+			<![CDATA[
+				and str_to_date( prod_enddate, '%Y-%m-%d' ) <= str_to_date(#{criteria.endDate}, '%Y-%m-%d')
+			]]>
+		</if>
+		
+	</select>
+	
+	<!-- 카테고리 관련 -->
+	
+	<!-- 카테고리 첫 번째 조회 -->
+	<select id="getCategory" resultType="CategoryVO">
+		SELECT * FROM PRODUCT_CATEGORY WHERE CATEGORY_LV = 1
+	</select>
+	
+	<select id="getCategoryChild" resultType="CategoryVO">
+		SELECT * from PRODUCT_CATEGORY
+		WHERE group_id = #{group_id}
+		AND category_parent_lv = #{category_lv}
+		AND category_detail_parent_lv = #{category_detail_lv}
+	</select>
+	
+	
+	<!-- 파일 업로드 -->
+	<!-- Insert 되기 전에 product 테이블의 키 값이 ek로 사용되기 때문에 반드시 필요하다 -->
+	<!-- 이때 selectKey 를 사용하면 된다. 
+		resultType : 조회한 결과를 반환받은 타입
+		keyProperty : 조회한 값을 저장할 속성명
+		order : BEFORE or AFTER가 사용 가능, SQL문 실행 전에 실행 할 것인지 후에 실행할 것인지 결정
+	-->
+	
+	<insert id="registFile">
+		<selectKey resultType="int" keyProperty="prod_id" order="BEFORE">
+			select max(prod_id) from product where prod_writer = #{prod_writer}
+		</selectKey>
+	
+		INSERT INTO PRODUCT_UPLOAD(
+			filename,
+			filepath,
+			uuid,
+			prod_id,
+			prod_writer			
+		) VALUES (
+			#{filename},
+			#{filepath},
+			#{uuid},
+			#{prod_id},
+			#{prod_writer}
+		)
+	</insert>
+
+	<!-- 이미지 조회 -->
+	<select id="getImges" resultType="ProductUploadVO">
+		select * from PRODUCT_UPLOAD where prod_id = #{prod_id}
+	</select>
+</mapper>
